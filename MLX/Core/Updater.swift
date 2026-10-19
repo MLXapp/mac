@@ -1,13 +1,17 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import SwiftUI
 
-/// Updates MLX in place when mlx.app offers a newer public build (`latest` in the heartbeat). Nothing happens
+/// Updates MLX Node in place when mlx.app offers a newer public build (`latest` in the heartbeat). Nothing happens
 /// until the owner presses Update in the panel; then it downloads the notarized disk image, hands it to the
 /// installer service inside the app (MLXUpdater.xpc: mounts it, checks the Developer ID signature and the
-/// version, copies the app next to this one), stops any work, swaps the new version in and restarts MLX.
-/// Where MLX can't replace itself (a folder it may not write, or a copy macOS translocated), the disk image is
+/// version, copies the app next to this one), stops any work, swaps the new version in and restarts MLX Node.
+/// Where MLX Node can't replace itself (a folder it may not write, or a copy macOS translocated), the disk image is
 /// saved to Downloads and opened in Finder instead.
+///
+/// The app's file name changed in 0.9.0 ("MLX.app" → "MLX Node.app"); see `moveToCurrentName` for how older installs
+/// get the new name.
 @MainActor
 final class Updater: ObservableObject {
     enum State: Equatable {
@@ -41,6 +45,16 @@ final class Updater: ObservableObject {
     static let browserPage = URL(string: "https://mlx.app/download")!
     /// Set just before the restart, read by the new instance (see `afterUpdate`).
     static let relaunchKey = "updateRelaunch"
+
+    /// What the instance before a restart left for the new one.
+    struct Restart {
+        /// The version that was running before the update.
+        let from: String
+        /// Where the app was before it took its new name (only on the restart that renamed it).
+        let movedFrom: String?
+        /// Whether "Open MLX Node when you log in" was on before the rename.
+        let loginItem: Bool
+    }
 
     // MARK: update
 
@@ -164,15 +178,15 @@ final class Updater: ObservableObject {
     /// checks write access itself).
     static func cannotReplace(_ app: URL) -> String? {
         if app.path.contains("/AppTranslocation/") {
-            return "MLX is running from a temporary copy macOS made of it, so it can't replace itself."
+            return "MLX Node is running from a temporary copy macOS made of it, so it can't replace itself."
         }
         if (try? app.resourceValues(forKeys: [.volumeIsReadOnlyKey]).volumeIsReadOnly) == true {
-            return "MLX is running from its disk image, so it can't replace itself."
+            return "MLX Node is running from its disk image, so it can't replace itself."
         }
         return nil
     }
 
-    /// Save the disk image to Downloads and open it in Finder, so the owner can drag MLX to Applications.
+    /// Save the disk image to Downloads and open it in Finder, so the owner can drag MLX Node to Applications.
     private func manual(_ dmg: URL, _ why: String) {
         let fm = FileManager.default
         guard let downloads = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first else {
@@ -190,7 +204,9 @@ final class Updater: ObservableObject {
             return
         }
         NSWorkspace.shared.open(dest)
-        state = .manual("\(why) The new version is open in Finder: drag MLX to Applications, then open it from there.")
+        // an install from before 0.9.0 is called MLX.app; the disk image now holds MLX Node.app, so the old copy stays
+        let old = Bundle.main.bundleURL.lastPathComponent == UpdateKit.legacyAppFileName ? " You can move the old MLX to the Trash." : ""
+        state = .manual("\(why) The new version is open in Finder: drag MLX Node to Applications, then open it from there.\(old)")
     }
 
     // MARK: restart
@@ -198,7 +214,12 @@ final class Updater: ObservableObject {
     /// Start the new version as a new instance, then quit. The new one waits for this one to be gone, so the
     /// menu bar never shows two icons.
     private func relaunch(_ app: URL, from: String) {
-        UserDefaults.standard.set(["at": Date().timeIntervalSince1970, "from": from] as [String: Any], forKey: Self.relaunchKey)
+        Self.restart(app, info: ["at": Date().timeIntervalSince1970, "from": from])
+    }
+
+    /// Leave `info` for the new instance, start the app at `app` as a new instance and quit.
+    private static func restart(_ app: URL, info: [String: Any]) {
+        UserDefaults.standard.set(info, forKey: relaunchKey)
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.createsNewApplicationInstance = true
         cfg.activates = false
@@ -211,7 +232,7 @@ final class Updater: ObservableObject {
         }
     }
 
-    /// Fallback: a shell that opens MLX a second after this one has quit.
+    /// Fallback: a shell that opens MLX Node a second after this one has quit.
     private static func relaunchLater(_ app: URL) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -219,13 +240,13 @@ final class Updater: ObservableObject {
         try? p.run()
     }
 
-    /// On launch: if the updater just restarted MLX, wait (up to ten seconds) for the old version to quit and
-    /// return the version it was. Called before the menu bar icon is made.
-    static func afterUpdate() async -> String? {
+    /// On launch: if the updater just restarted MLX Node, wait (up to ten seconds) for the old version to quit and
+    /// return what it left (the version it was). Called before the menu bar icon is made.
+    static func afterUpdate() async -> Restart? {
         let d = UserDefaults.standard
         guard let info = d.dictionary(forKey: relaunchKey) else { return nil }
         d.removeObject(forKey: relaunchKey)
-        guard let at = info["at"] as? Double, Date().timeIntervalSince1970 - at < 120 else { return nil }
+        guard let at = info["at"] as? Double, Date().timeIntervalSince1970 - at < 120, let from = info["from"] as? String else { return nil }
         let me = ProcessInfo.processInfo.processIdentifier
         let id = Bundle.main.bundleIdentifier ?? UpdateKit.bundleID
         for _ in 0..<100 {
@@ -233,10 +254,44 @@ final class Updater: ObservableObject {
             if others.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
         }
-        return info["from"] as? String
+        return Restart(from: from, movedFrom: info["movedFrom"] as? String, loginItem: info["loginItem"] as? Bool ?? false)
     }
 
-    /// "Updated to MLX 0.8.2" in the panel for a little while after the restart.
+    // MARK: the new name (0.9.0)
+
+    /// An install from before 0.9.0 is called MLX.app, and the update to 0.9.0 lands there: 0.8.x's own installer
+    /// swapped it in under that path, and nothing can change 0.8.x any more. So on the first launch after an update,
+    /// before the menu bar icon appears, an app still called MLX.app asks its installer for one rename in the same
+    /// folder ("MLX Node.app", never replacing anything, see `Installer.moveToCurrentName`) and restarts from there:
+    /// the owner sees one restart, as with every update, and then MLX Node in Applications. If anything is in the
+    /// way (no permission, a copy already called MLX Node.app, no answer), it carries on as MLX.app, as before; the
+    /// next update tries again. Nothing that identifies the Mac changes: the bundle id, the device key in the
+    /// sandbox container, settings, passkeys and the wallet link all stay. Returns true when it is restarting (the
+    /// caller then does nothing more).
+    static func moveToCurrentName(after r: Restart) async -> Bool {
+        let fm = FileManager.default
+        let here = Bundle.main.bundleURL
+        guard UpdateKit.renamedPath(for: here.path, exists: { fm.fileExists(atPath: $0) }) != nil, cannotReplace(here) == nil else { return false }
+        let loginItem = SMAppService.mainApp.status == .enabled
+        let service = UpdaterClient()
+        let reported = await service.moveToCurrentName(here.path)
+        service.close()
+        let expected = UpdateKit.renamedPath(for: here.path, exists: { _ in false })
+        guard let to = UpdateKit.restartPath(old: here.path, new: reported ?? expected, exists: { fm.fileExists(atPath: $0) }) else { return false }
+        Updater.restart(URL(fileURLWithPath: to, isDirectory: true), info: [
+            "at": Date().timeIntervalSince1970, "from": r.from, "movedFrom": here.path, "loginItem": loginItem,
+        ])
+        return true
+    }
+
+    /// After the rename: "Open MLX Node when you log in" stays on. Registers the app at its new place only if it was
+    /// on before and isn't any more (never turns it off, never asks when it's already fine).
+    static func keepLoginItem(after r: Restart) {
+        guard r.movedFrom != nil, r.loginItem, SMAppService.mainApp.status != .enabled else { return }
+        try? SMAppService.mainApp.register()
+    }
+
+    /// "Updated to MLX Node 0.9.0" in the panel for a little while after the restart.
     func showUpdated(_ v: String) {
         withAnimation(.smooth(duration: 0.35)) { justUpdated = v }
         Task { [weak self] in
@@ -280,7 +335,7 @@ final class UpdaterClient {
                 if once.claim() { cont.resume(throwing: Self.unreachable(e)) }
             } as? UpdaterProtocol
             guard let proxy else {
-                if once.claim() { cont.resume(throwing: UpdateFailure(.failed, "MLX couldn't start its installer.")) }
+                if once.claim() { cont.resume(throwing: UpdateFailure(.failed, "MLX Node couldn't start its installer.")) }
                 return
             }
             proxy.prepare(handle, target: target) { staged, version, code, message in
@@ -301,7 +356,7 @@ final class UpdaterClient {
                 if once.claim() { cont.resume(throwing: Self.unreachable(e)) }
             } as? UpdaterProtocol
             guard let proxy else {
-                if once.claim() { cont.resume(throwing: UpdateFailure(.failed, "MLX couldn't start its installer.")) }
+                if once.claim() { cont.resume(throwing: UpdateFailure(.failed, "MLX Node couldn't start its installer.")) }
                 return
             }
             proxy.install(staged, target: target) { code, message in
@@ -331,6 +386,27 @@ final class UpdaterClient {
         }
     }
 
+    /// The new path after giving an install from before 0.9.0 its new name, or nil if it keeps its place (or the
+    /// service doesn't answer within `seconds`; the caller then looks at the disk).
+    func moveToCurrentName(_ target: String, seconds: Double = 10) async -> String? {
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            let once = Once()
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+                if once.claim() { cont.resume(returning: nil) }
+            }
+            let proxy = connection.remoteObjectProxyWithErrorHandler { _ in
+                if once.claim() { cont.resume(returning: nil) }
+            } as? UpdaterProtocol
+            guard let proxy else {
+                if once.claim() { cont.resume(returning: nil) }
+                return
+            }
+            proxy.moveToCurrentName(target) { path, code, _ in
+                if once.claim() { cont.resume(returning: code == 0 ? path : nil) }
+            }
+        }
+    }
+
     /// The service's answer, or nil if it doesn't answer within `seconds` (for the self-test).
     func ping(seconds: Double = 15) async -> String? {
         await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
@@ -352,7 +428,7 @@ final class UpdaterClient {
     }
 
     private static func unreachable(_ e: Error) -> UpdateFailure {
-        UpdateFailure(.failed, "MLX's installer stopped answering (\(e.localizedDescription)).")
+        UpdateFailure(.failed, "MLX Node's installer stopped answering (\(e.localizedDescription)).")
     }
 }
 

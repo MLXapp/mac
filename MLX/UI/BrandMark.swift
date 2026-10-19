@@ -33,7 +33,7 @@ enum BrandMark {
             return true
         }
         img.isTemplate = !running
-        img.accessibilityDescription = running ? "MLX, running" : "MLX"
+        img.accessibilityDescription = running ? "MLX Node, running" : "MLX Node"
         return img
     }
 }

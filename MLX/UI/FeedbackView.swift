@@ -11,7 +11,7 @@ struct FeedbackPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SubHeader(title: "Send feedback")
-            Text("Anything helps: MLX got in your way, your Mac got warm, something was confusing.")
+            Text("Anything helps: MLX Node got in your way, your Mac got warm, something was confusing.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $text)
                 .font(.body)

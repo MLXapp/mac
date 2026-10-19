@@ -1,13 +1,13 @@
 import Foundation
 
-/// `MLX.app/Contents/MacOS/MLX --selftest`: checks this build end to end without the UI.
+/// `"MLX Node.app/Contents/MacOS/MLX" --selftest`: checks this build end to end without the UI.
 /// Signs a heartbeat to mlx.app (proves the signature format matches the server), then downloads
 /// the smallest beta model and runs one greedy job on the GPU. Used by CI and for support.
 enum SelfTest {
     static func run() async -> Int32 {
         func say(_ s: String) { FileHandle.standardOutput.write(Data((s + "\n").utf8)) }
         do {
-            say("MLX \(SystemInfo.appVersion) self-test on \(SystemInfo.os), Apple \(SystemInfo.chip), \(SystemInfo.memoryGB) GB")
+            say("MLX Node \(SystemInfo.appVersion) self-test on \(SystemInfo.os), Apple \(SystemInfo.chip), \(SystemInfo.memoryGB) GB")
             let key = try DeviceKey.loadOrCreate()
             say("device key: \(key.kind.rawValue) \(key.publicKeyHex.prefix(12))…")
             let api = API(key: key)

@@ -7,8 +7,8 @@ options:
   developmentLanguage: en
 settings:
   base:
-    MARKETING_VERSION: "0.8.4"
-    CURRENT_PROJECT_VERSION: "14"
+    MARKETING_VERSION: "0.9.0"
+    CURRENT_PROJECT_VERSION: "16"
     SWIFT_VERSION: "5.0"
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
@@ -40,14 +40,14 @@ targets:
         product: HuggingFace
       - package: swift-transformers
         product: Tokenizers
-      # the installer service (Contents/XPCServices/MLXUpdater.xpc): not sandboxed, only reachable by MLX
+      # the installer service (Contents/XPCServices/MLXUpdater.xpc): not sandboxed, only reachable by MLX Node
       - target: MLXUpdater
         embed: true
     info:
       path: MLX/Info.plist
       properties:
-        CFBundleDisplayName: MLX
-        CFBundleName: MLX
+        CFBundleDisplayName: MLX Node
+        CFBundleName: MLX Node
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.utilities
@@ -65,8 +65,15 @@ targets:
         com.apple.security.files.downloads.read-write: true
     settings:
       base:
+        # never changes: the device key, the sandbox container (Application Support/MLX), UserDefaults
+        # (app.mlx.mac), passkeys and the updater's signature check all hang on it
         PRODUCT_BUNDLE_IDENTIFIER: app.mlx.mac
-        PRODUCT_NAME: MLX
+        # "MLX Node.app" from 0.9.0 (fresh installs from the disk image). Installs from before are called MLX.app;
+        # the first launch after the in-app update renames them (Updater.moveToCurrentName, Installer.moveToCurrentName).
+        PRODUCT_NAME: MLX Node
+        # the binary inside keeps its name (Contents/MacOS/MLX), so an 0.8.x updater that swaps 0.9.0 in under the
+        # old bundle path relaunches exactly the same executable path as every update before; nobody sees this name
+        EXECUTABLE_NAME: MLX
         PRODUCT_MODULE_NAME: MLXApp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
@@ -83,7 +90,7 @@ targets:
     info:
       path: MLXUpdater/Info.plist
       properties:
-        CFBundleDisplayName: MLX Updater
+        CFBundleDisplayName: MLX Node Updater
         CFBundleExecutable: $(EXECUTABLE_NAME)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: MLXUpdater

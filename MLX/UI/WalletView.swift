@@ -104,8 +104,8 @@ final class WalletBrowser: NSObject, ObservableObject {
     private func make() -> WKWebView {
         let c = WKWebViewConfiguration()
         c.websiteDataStore = .default()
-        // "MLXMac/0.6.0 macOS/26.1": the site shows the wallet without its own header, and lists this
-        // Mac as "MLX for Mac · macOS 26.1" under Devices
+        // "MLXMac/0.6.0 macOS/26.1" (an identifier: keep it): the site shows the wallet without its own header, and
+        // lists this Mac under Devices
         let v = ProcessInfo.processInfo.operatingSystemVersion
         c.applicationNameForUserAgent = "MLXMac/\(SystemInfo.appVersion) macOS/\(v.majorVersion).\(v.minorVersion)"
         c.preferences.isElementFullscreenEnabled = false

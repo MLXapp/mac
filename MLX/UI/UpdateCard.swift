@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// "MLX 0.8.3 is available", the release notes and an Update button. Pressing it downloads, checks, installs and
-/// restarts MLX right here in the panel: a progress bar and a status line while it works, then the error in red
+/// "MLX Node 0.9.1 is available", the release notes and an Update button. Pressing it downloads, checks, installs and
+/// restarts MLX Node right here in the panel: a progress bar and a status line while it works, then the error in red
 /// with Try again (and the download page as a fallback) if something goes wrong.
 struct UpdateCard: View {
     @EnvironmentObject var m: AppModel
@@ -17,7 +17,7 @@ struct UpdateCard: View {
                     .font(.system(size: 18))
                     .foregroundStyle(BrandMark.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("MLX \(version) is available").font(.system(size: 13, weight: .semibold))
+                    Text("MLX Node \(version) is available").font(.system(size: 13, weight: .semibold))
                     if !notes.isEmpty {
                         Text(notes)
                             .font(.caption)
@@ -97,7 +97,7 @@ struct UpdateCard: View {
         case .downloading(let p): return p > 0 ? "Downloading… \(Int((p * 100).rounded()))%" : "Downloading…"
         case .verifying: return "Checking signature…"
         case .installing: return "Installing…"
-        case .readyToRelaunch: return "Restarting MLX…"
+        case .readyToRelaunch: return "Restarting MLX Node…"
         case .idle, .failed, .manual: return nil
         }
     }
@@ -115,14 +115,14 @@ struct UpdateCard: View {
     }
 }
 
-/// "Updated to MLX 0.8.2", for a little while after the updater restarted MLX.
+/// "Updated to MLX Node 0.9.0", for a little while after the updater restarted MLX Node.
 struct UpdatedRow: View {
     let version: String
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            Text("Updated to MLX \(version)").font(.system(size: 12, weight: .semibold))
+            Text("Updated to MLX Node \(version)").font(.system(size: 12, weight: .semibold))
             Spacer(minLength: 0)
         }
         .padding(10)

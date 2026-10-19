@@ -19,8 +19,47 @@ final class UpdateTests: XCTestCase {
     }
 
     func testDmgName() {
-        XCTAssertEqual(UpdateKit.dmgName("0.8.2"), "MLX-082.dmg")
-        XCTAssertEqual(UpdateKit.dmgName("0.10.0"), "MLX-0100.dmg")
+        XCTAssertEqual(UpdateKit.dmgName("0.9.0"), "MLX-Node-090.dmg")
+        XCTAssertEqual(UpdateKit.dmgName("0.10.0"), "MLX-Node-0100.dmg")
+    }
+
+    // MARK: the app's file name (MLX.app → MLX Node.app, 0.9.0)
+
+    func testOldNameMovesToNewNameInTheSameFolder() {
+        let none: (String) -> Bool = { _ in false }
+        XCTAssertEqual(UpdateKit.renamedPath(for: "/Applications/MLX.app", exists: none), "/Applications/MLX Node.app")
+        XCTAssertEqual(UpdateKit.renamedPath(for: "/Users/a/Applications/MLX.app", exists: none), "/Users/a/Applications/MLX Node.app")
+        XCTAssertEqual(UpdateKit.renamedPath(for: "/Applications/MLX.app/", exists: none), "/Applications/MLX Node.app")
+        XCTAssertEqual(UpdateKit.renamedPath(for: "/Volumes/Work/Apps/MLX.app", exists: none), "/Volumes/Work/Apps/MLX Node.app")
+    }
+
+    func testNewNameAndOtherNamesStay() {
+        let none: (String) -> Bool = { _ in false }
+        XCTAssertNil(UpdateKit.renamedPath(for: "/Applications/MLX Node.app", exists: none))
+        XCTAssertNil(UpdateKit.renamedPath(for: "/Applications/MLX 2.app", exists: none))  // a copy the owner named
+        XCTAssertNil(UpdateKit.renamedPath(for: "/Applications/mlx.app", exists: none))  // only the exact old name
+        XCTAssertNil(UpdateKit.renamedPath(for: "/Applications/MLX Studio.app", exists: none))
+        XCTAssertNil(UpdateKit.renamedPath(for: "/private/var/folders/x/T/AppTranslocation/1234/d/MLX.app", exists: none))
+    }
+
+    func testNeverRenamesOntoSomethingThere() {
+        // MLX Node.app already in Applications (dragged from the disk image): the old copy keeps its name
+        XCTAssertNil(UpdateKit.renamedPath(for: "/Applications/MLX.app", exists: { $0 == "/Applications/MLX Node.app" }))
+        // something with the new name elsewhere doesn't matter
+        XCTAssertEqual(UpdateKit.renamedPath(for: "/Applications/MLX.app", exists: { $0 == "/Users/a/Applications/MLX Node.app" }), "/Applications/MLX Node.app")
+    }
+
+    func testRestartsFromTheNewPlaceOnlyWhenTheDiskSaysSo() {
+        let old = "/Applications/MLX.app", new = "/Applications/MLX Node.app"
+        // renamed: start the app from its new place
+        XCTAssertEqual(UpdateKit.restartPath(old: old, new: new, exists: { $0 == new }), new)
+        // not renamed (no permission, something in the way): keep running where it is
+        XCTAssertNil(UpdateKit.restartPath(old: old, new: new, exists: { $0 == old }))
+        XCTAssertNil(UpdateKit.restartPath(old: old, new: new, exists: { $0 == old || $0 == new }))
+        // nothing to restart into
+        XCTAssertNil(UpdateKit.restartPath(old: old, new: nil, exists: { _ in true }))
+        XCTAssertNil(UpdateKit.restartPath(old: old, new: new, exists: { _ in false }))
+        XCTAssertNil(UpdateKit.restartPath(old: old, new: old, exists: { _ in false }))
     }
 
     /// Trimmed output of `hdiutil attach -nobrowse -noverify -noautoopen -readonly -plist` for a UDZO image.

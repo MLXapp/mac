@@ -57,6 +57,8 @@ final class DeviceKey: @unchecked Sendable {
     }
 
     private static func fileURL(_ name: String) -> URL {
+        // "MLX" is a folder name, not the app's name: renaming it (or the bundle id) would make a new device key and
+        // unlink the Mac from its wallet, so it stays "MLX" whatever the app is called
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MLX", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return dir.appendingPathComponent("device-\(name).key")

@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import UserNotifications
 
-/// Wallet news as Mac notifications: money received, a deposit credited, a node recorded, a commission
+/// Wallet news as Mac notifications: money received, a deposit credited, a dedicated seat recorded, a commission
 /// paid, a withdrawal sent or returned. The website sends these as web push; inside the app the same
 /// news comes from the ledger's public account history, checked once a minute, for the wallet open in
 /// the panel (or the one this Mac works for). Off until the owner turns it on in Settings.
@@ -77,7 +77,7 @@ final class WalletNews: NSObject, ObservableObject, UNUserNotificationCenterDele
                 : ("Withdrawal returned", "The amount and the fee are back in your wallet.")
         case "mint_node", "buy_node", "grant_node":
             if let n = fx.first(where: { $0.kind == "mint_node" && ($0.to == nil || $0.to == me) })?.node {
-                return ("Node #\(n) is yours", "It's on the network and earning MLX.")
+                return ("Seat #\(n) is yours", "Your dedicated seat is on the network and earning MLX.")
             }
             return nil
         case "transfer" where t.tx.from != me:

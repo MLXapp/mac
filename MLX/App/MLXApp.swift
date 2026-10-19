@@ -34,8 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keys = Self.editingKeys()
         Task { @MainActor in
             // restarted by the updater: let the old version quit first, so there's only ever one menu bar icon
-            let updatedFrom = await Updater.afterUpdate()
-            let updated = updatedFrom.map { UpdateKit.isNewer(SystemInfo.appVersion, than: $0) } ?? false
+            let restart = await Updater.afterUpdate()
+            let updated = restart.map { UpdateKit.isNewer(SystemInfo.appVersion, than: $0.from) } ?? false
+            // an install from before 0.9.0 is still called MLX.app: it takes its new name (MLX Node.app) now, while it is
+            // restarting anyway, and starts again from there before any icon shows
+            if updated, let restart {
+                let moving = await Updater.moveToCurrentName(after: restart)
+                if moving { return }
+            }
+            if let restart { Updater.keepLoginItem(after: restart) }
             let m = AppModel.shared
             let p = PanelController(model: m)
             panel = p
@@ -103,7 +110,7 @@ final class PanelController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         if let b = item.button {
             b.image = BrandMark.menuIcon(running: false)
-            b.setAccessibilityLabel("MLX")
+            b.setAccessibilityLabel("MLX Node")
             b.target = self
             b.action = #selector(toggle)
         }

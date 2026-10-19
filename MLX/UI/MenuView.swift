@@ -53,7 +53,9 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Emblem(size: 24)
-                (Text("ML") + Text("X").foregroundColor(Color.primary.opacity(0.7)))
+                // the MLX wordmark (X at 70%) and the product name, as the site's lockup (`Brand` suffix: semibold, muted)
+                (Text("ML") + Text("X").foregroundColor(Color.primary.opacity(0.7))
+                    + Text(" Node").fontWeight(.semibold).foregroundColor(.secondary))
                     .font(.system(size: 15, weight: .bold))
                 Spacer()
                 StatusPill(state: pill)
@@ -168,7 +170,7 @@ struct MenuView: View {
             MenuRow("Wallet", icon: "wallet.pass", detail: wallet.account ?? m.account, chevron: true) { m.openWallet() }
             MenuRow("Settings", icon: "gearshape", chevron: true) { m.go(.settings) }
             MenuRow("Send feedback", icon: "bubble.left", chevron: true) { m.go(.feedback) }
-            MenuRow("Quit MLX", icon: "power") { NSApp.terminate(nil) }
+            MenuRow("Quit MLX Node", icon: "power") { NSApp.terminate(nil) }
         }
     }
 }
@@ -265,8 +267,8 @@ private struct HoverRow<Content: View>: View {
 }
 
 /// What this Mac's wallet has mined: today (UTC, paid every hour, all the wallet's Macs) and all of it still locked, with
-/// dollar values at the network price. Without a node the Mac earns at a twentieth of a Core node, so the card points to the nodes; a
-/// node bigger than this Mac's class earns at the Mac's class, so the card says which Mac would carry it in full.
+/// dollar values at the network price. Without a dedicated seat the Mac mines on a free seat (a twentieth of a Core seat), so the card
+/// points to the seats; a seat bigger than this Mac's class runs on it as the Mac's class, so the card says so.
 struct EarnCard: View {
     @EnvironmentObject var m: AppModel
 
@@ -276,17 +278,17 @@ struct EarnCard: View {
             HStack(alignment: .top) {
                 figure("Wallet mined today", e?.today, usd: e?.usdPerMlx, alignment: .leading)
                 Spacer()
-                figure("Locked, 18 months", e?.mined, usd: e?.usdPerMlx, alignment: .trailing)
+                figure("Locked", e?.mined, usd: e?.usdPerMlx, alignment: .trailing)
             }
             if let e {
-                Text(e.units == 0 ? "Up to \(Self.mlx(e.perDayCap)) a day without a node · paid every hour" : "Up to \(Self.mlx(e.perDayCap)) a day here · paid every hour")
+                Text(e.units == 0 ? "Up to \(Self.mlx(e.perDayCap)) a day on a free seat · paid every hour" : "Up to \(Self.mlx(e.perDayCap)) a day here · paid every hour")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             if let e, e.units == 0 {
-                row(icon: "bolt.fill", text: "Get a node to earn 20× more") { m.openNodes() }
+                row(icon: "bolt.fill", text: "Get a dedicated seat to earn 20× more") { m.openNodes() }
             } else if let e {
                 if let full = e.fullUnits, full > e.units, let node = e.nodeName, let mac = e.macName {
-                    row(icon: "arrow.up.circle.fill", text: "Your \(node) node earns as \(mac) on this Mac") { m.openNodes() }
+                    row(icon: "arrow.up.circle.fill", text: "Your \(node) seat runs on this Mac as \(mac)") { m.openNodes() }
                 }
             }
         }

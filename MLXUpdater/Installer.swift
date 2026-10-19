@@ -3,7 +3,7 @@ import Foundation
 import Security
 
 /// The installer's work, step by step. Every step checks again what the one before it did: the app in the disk
-/// image and its copy next to the running app must both carry MLX's Developer ID signature (team CCKXS9W488,
+/// image and its copy next to the running app must both carry MLX Node's Developer ID signature (team CCKXS9W488,
 /// bundle id app.mlx.mac) and be newer than the version installed; otherwise nothing is touched.
 enum Installer {
     struct Prepared {
@@ -19,7 +19,7 @@ enum Installer {
         let dir = app.deletingLastPathComponent()
         let fm = FileManager.default
         guard fm.isWritableFile(atPath: dir.path), fm.isWritableFile(atPath: app.path) else {
-            throw UpdateFailure(.notWritable, "MLX can't replace itself in \(dir.path) (no permission to write there).")
+            throw UpdateFailure(.notWritable, "MLX Node can't replace itself in \(dir.path) (no permission to write there).")
         }
         removeLeftovers(in: dir)
 
@@ -35,7 +35,7 @@ enum Installer {
         let source = try findApp(in: URL(fileURLWithPath: mount, isDirectory: true))
         let version = try verify(source)
         guard UpdateKit.isNewer(version, than: installed) else {
-            throw UpdateFailure(.notNewer, "MLX \(installed) is already up to date (the download is \(version)).")
+            throw UpdateFailure(.notNewer, "MLX Node \(installed) is already up to date (the download is \(version)).")
         }
 
         // the copy waits next to the app (same volume, so the swap is one rename)
@@ -65,7 +65,7 @@ enum Installer {
         let version = try verify(new)
         let installed = try bundleVersion(app)
         guard UpdateKit.isNewer(version, than: installed) else {
-            throw UpdateFailure(.notNewer, "MLX \(installed) is already up to date.")
+            throw UpdateFailure(.notNewer, "MLX Node \(installed) is already up to date.")
         }
         // one atomic step: the new version takes the app's place, the old one takes the copy's
         if renamex_np(new.path, app.path, UInt32(RENAME_SWAP)) == 0 {
@@ -76,7 +76,7 @@ enum Installer {
         // a file system without swap: two renames, putting the old version back if the second one fails
         let old = app.deletingLastPathComponent().appendingPathComponent("\(UpdateKit.stagingPrefix)old-\(UUID().uuidString).app", isDirectory: true)
         guard rename(app.path, old.path) == 0 else {
-            throw UpdateFailure(.notWritable, "MLX can't replace itself in \(app.deletingLastPathComponent().path) (\(errnoText)).")
+            throw UpdateFailure(.notWritable, "MLX Node can't replace itself in \(app.deletingLastPathComponent().path) (\(errnoText)).")
         }
         guard rename(new.path, app.path) == 0 else {
             let why = errnoText
@@ -98,13 +98,37 @@ enum Installer {
         try? FileManager.default.removeItem(at: new)
     }
 
+    // MARK: name
+
+    /// Give an install from before 0.9.0 the app's current name: ".../MLX.app" becomes ".../MLX Node.app" in the same
+    /// folder (see `UpdateKit.renamedPath` for when). One rename that never replaces anything (RENAME_EXCL), so at
+    /// every moment exactly one complete copy is installed, under the old name or the new one; if anything is in
+    /// the way, the app keeps its old name. Nothing is copied or installed and the app's identity doesn't change
+    /// (bundle id, signature, sandbox container, settings). Returns the new path.
+    static func moveToCurrentName(_ target: String) throws -> String {
+        let app = try checkTarget(target)
+        let fm = FileManager.default
+        guard let dest = UpdateKit.renamedPath(for: app.path, exists: { fm.fileExists(atPath: $0) }) else {
+            throw UpdateFailure(.failed, "\(app.lastPathComponent) keeps its name.")
+        }
+        let dir = app.deletingLastPathComponent()
+        guard fm.isWritableFile(atPath: dir.path) else {
+            throw UpdateFailure(.notWritable, "MLX Node can't rename itself in \(dir.path) (no permission to write there).")
+        }
+        guard renamex_np(app.path, dest, UInt32(RENAME_EXCL)) == 0 else {
+            throw UpdateFailure(.failed, "MLX Node keeps its old name (\(errnoText)).")
+        }
+        register(URL(fileURLWithPath: dest, isDirectory: true))
+        return dest
+    }
+
     // MARK: checks
 
-    /// The installed MLX the app asked to replace: a real bundle with MLX's id, not a translocated copy.
+    /// The installed MLX Node the app asked to replace: a real bundle with its id, not a translocated copy.
     static func checkTarget(_ path: String) throws -> URL {
         let app = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath()
         if app.path.contains("/AppTranslocation/") {
-            throw UpdateFailure(.notWritable, "MLX is running from a temporary copy macOS made of it, so it can't replace itself.")
+            throw UpdateFailure(.notWritable, "MLX Node is running from a temporary copy macOS made of it, so it can't replace itself.")
         }
         guard app.pathExtension == "app" else { throw UpdateFailure(.failed, "\(app.path) isn't an app.") }
         _ = try bundleVersion(app)
@@ -120,16 +144,16 @@ enum Installer {
         return new
     }
 
-    /// MLX's version from a bundle's Info.plist, if the bundle is MLX.
+    /// MLX Node's version from a bundle's Info.plist, if the bundle is MLX Node (bundle id app.mlx.mac, whatever its file name).
     static func bundleVersion(_ app: URL) throws -> String {
         guard let info = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) as? [String: Any],
               info["CFBundleIdentifier"] as? String == UpdateKit.bundleID,
               let v = info["CFBundleShortVersionString"] as? String, !v.isEmpty
-        else { throw UpdateFailure(.failed, "\(app.lastPathComponent) isn't MLX.") }
+        else { throw UpdateFailure(.failed, "\(app.lastPathComponent) isn't MLX Node.") }
         return v
     }
 
-    /// Strict check of the whole bundle (every architecture, nested code, no symlinks out) against MLX's
+    /// Strict check of the whole bundle (every architecture, nested code, no symlinks out) against MLX Node's
     /// Developer ID requirement. Returns the bundle's version.
     @discardableResult
     static func verify(_ app: URL) throws -> String {
@@ -148,7 +172,7 @@ enum Installer {
         status = SecStaticCodeCheckValidityWithErrors(code, flags, requirement, &errors)
         guard status == errSecSuccess else {
             let why = errors.map { ($0.takeRetainedValue() as Error).localizedDescription } ?? "error \(status)"
-            throw UpdateFailure(.badSignature, "The new version isn't signed by MLX's developer, so it wasn't installed (\(why)).")
+            throw UpdateFailure(.badSignature, "The new version isn't signed by MLX Node's developer, so it wasn't installed (\(why)).")
         }
         return try bundleVersion(app)
     }
@@ -191,14 +215,15 @@ enum Installer {
         }
     }
 
-    /// MLX.app at the top of the disk image (not the Applications shortcut).
+    /// The app at the top of the disk image, whatever its file name ("MLX Node.app" from 0.9.0, "MLX.app" before), by
+    /// its bundle id (not the Applications shortcut).
     static func findApp(in volume: URL) throws -> URL {
         let items = (try? FileManager.default.contentsOfDirectory(at: volume, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles])) ?? []
         for u in items where u.pathExtension == "app" {
             if (try? u.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { continue }
             if (try? bundleVersion(u)) != nil { return u }
         }
-        throw UpdateFailure(.failed, "The download doesn't contain MLX.")
+        throw UpdateFailure(.failed, "The download doesn't contain MLX Node.")
     }
 
     /// Copies an earlier update left behind (the app quit between steps), after an hour.

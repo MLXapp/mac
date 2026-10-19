@@ -10,7 +10,7 @@ struct SettingsPanel: View {
             SubHeader(title: "Settings")
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    group("When MLX may work") {
+                    group("When MLX Node may work") {
                         LimitsForm()
                     }
                     group("Account") {
@@ -19,7 +19,7 @@ struct SettingsPanel: View {
                         Toggle(isOn: Binding(get: { news.enabled }, set: { news.setEnabled($0) })) {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("Wallet notifications").font(.system(size: 13, weight: .medium))
-                                Text(news.denied ? "Allow MLX in System Settings → Notifications to turn these on." : "Money received, deposits, nodes and withdrawals.")
+                                Text(news.denied ? "Allow MLX Node in System Settings → Notifications to turn these on." : "Money received, deposits, seats and withdrawals.")
                                     .font(.caption).foregroundStyle(news.denied ? .orange : .secondary).fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -39,7 +39,7 @@ struct SettingsPanel: View {
                             Spacer()
                         }
                     }
-                    Toggle("Open MLX when you log in", isOn: Binding(get: { m.launchAtLogin }, set: { m.launchAtLogin = $0 }))
+                    Toggle("Open MLX Node when you log in", isOn: Binding(get: { m.launchAtLogin }, set: { m.launchAtLogin = $0 }))
                         .toggleStyle(.switch).controlSize(.small)
                 }
                 .padding(.bottom, 4)
@@ -88,7 +88,7 @@ struct LimitsForm: View {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("After idle for").font(.callout)
-                    Text(m.limits.manual ? "Off: you start and stop MLX yourself" : "Pauses when you're back, resumes when you leave")
+                    Text(m.limits.manual ? "Off: you start and stop MLX Node yourself" : "Pauses when you're back, resumes when you leave")
                         .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
@@ -98,7 +98,7 @@ struct LimitsForm: View {
             }
             Toggle("Only when plugged in", isOn: l.onlyOnAC).toggleStyle(.switch).controlSize(.small)
             HStack {
-                Text("Memory MLX may use").font(.callout)
+                Text("Memory MLX Node may use").font(.callout)
                 Spacer()
                 Slider(value: Binding(get: { Double(m.limits.memoryPct) }, set: { m.limits.memoryPct = Int($0) }), in: 20...75, step: 5)
                     .frame(width: 110)

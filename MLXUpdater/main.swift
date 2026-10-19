@@ -1,8 +1,9 @@
 import Foundation
 
-/// MLX's installer service. It lives inside MLX.app (Contents/XPCServices/MLXUpdater.xpc), only MLX can reach
-/// it, and it isn't sandboxed, so it can do the two things the sandboxed app can't: mount the update's disk
-/// image and swap the new app in where MLX is installed. It never downloads anything and never runs the app.
+/// MLX Node's installer service. It lives inside the app (Contents/XPCServices/MLXUpdater.xpc), only MLX Node can
+/// reach it, and it isn't sandboxed, so it can do what the sandboxed app can't: mount the update's disk image, swap
+/// the new app in where MLX Node is installed, and give an install from before 0.9.0 ("MLX.app") its new name.
+/// It never downloads anything and never runs the app.
 final class Service: NSObject, UpdaterProtocol {
     private let queue = DispatchQueue(label: "app.mlx.mac.updater.work")
 
@@ -30,6 +31,18 @@ final class Service: NSObject, UpdaterProtocol {
         }
     }
 
+    func moveToCurrentName(_ target: String, withReply reply: @escaping (String?, Int, String?) -> Void) {
+        queue.async {
+            do {
+                let path = try Installer.moveToCurrentName(target)
+                reply(path, 0, nil)
+            } catch {
+                let f = Service.failure(error)
+                reply(nil, f.code.rawValue, f.message)
+            }
+        }
+    }
+
     func discard(_ staged: String, target: String, withReply reply: @escaping () -> Void) {
         queue.async {
             Installer.discard(staged: staged, target: target)
@@ -48,7 +61,7 @@ final class Service: NSObject, UpdaterProtocol {
 }
 
 final class Listener: NSObject, NSXPCListenerDelegate {
-    /// A Developer ID build answers only a Developer ID build of MLX; a local ad-hoc build answers its own app.
+    /// A Developer ID build answers only a Developer ID build of MLX Node; a local ad-hoc build answers its own app.
     private let strict = Installer.isReleaseSigned
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {

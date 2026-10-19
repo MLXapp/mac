@@ -46,7 +46,7 @@ struct SetupPanel: View {
     @ViewBuilder private var content: some View {
         switch step {
         case .welcome:
-            page(title: "Your Mac, part of a supercomputer.", text: "MLX runs AI work while your Mac is idle and plugged in, earns MLX for it, and stops the moment you need it. It never reads your files, photos or messages.") {
+            page(title: "Your Mac, part of a supercomputer.", text: "MLX Node runs AI work while your Mac is idle and plugged in, earns MLX for it, and stops the moment you need it. It never reads your files, photos or messages.") {
                 Emblem(size: 64).padding(.vertical, 6)
             } actions: {
                 PrimaryButton(title: "Get started") { m.setupGo(.connect) }
@@ -65,7 +65,7 @@ struct SetupPanel: View {
         case .connect:
             ConnectBody(onDone: { m.setupGo(.limits) })
         case .limits:
-            page(title: "You're in charge.", text: "MLX works only when all of these are true. Change them any time in Settings.") {
+            page(title: "You're in charge.", text: "MLX Node works only when all of these are true. Change them any time in Settings.") {
                 LimitsForm()
             } actions: {
                 PrimaryButton(title: "Continue") { m.setupGo(.measure) }
@@ -89,7 +89,7 @@ struct SetupPanel: View {
                 }
             }
         case .done:
-            page(title: "All set.", text: "MLX lives in your menu bar. Leave your Mac idle and plugged in, and it earns MLX, paid every hour and locked for 18 months. A node matched to your Mac multiplies it: 20× with Core, 80× with Pro, 320× with Ultra.") {
+            page(title: "All set.", text: "MLX Node lives in your menu bar. Leave your Mac idle and plugged in, and it earns MLX, paid every hour and locked for 30 days (3 to 20 with a dedicated seat). A dedicated seat matched to your Mac multiplies it: 20× with Core, 80× with Pro, 320× with Ultra.") {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(.green)

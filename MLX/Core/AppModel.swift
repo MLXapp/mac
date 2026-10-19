@@ -106,7 +106,7 @@ final class AppModel: ObservableObject {
     func start() {
         guard key == nil else { return }
         guard SystemInfo.isAppleSilicon else {
-            phase = .failed("MLX needs a Mac with Apple Silicon (M1 or later).")
+            phase = .failed("MLX Node needs a Mac with Apple Silicon (M1 or later).")
             return
         }
         do {
@@ -494,7 +494,7 @@ final class AppModel: ObservableObject {
         while !(await done.value) {
             if stopping {
                 task.cancel()
-                return Stopped(reason: "Updating MLX", since: Date(), byOwner: false)
+                return Stopped(reason: "Updating MLX Node", since: Date(), byOwner: false)
             }
             let c = SystemInfo.conditions()
             if let why = Policy.mustStop(c, limits) {
@@ -516,7 +516,7 @@ final class AppModel: ObservableObject {
 
     /// A fixed run on the smallest model to measure this Mac (asked for by the owner, so it runs now).
     func calibrate() async -> String? {
-        guard !busy, !stopping else { return "MLX is busy. Try again in a moment." }
+        guard !busy, !stopping else { return "MLX Node is busy. Try again in a moment." }
         busy = true
         defer { busy = false }
         let spec = calibrationSpec ?? CalibrationSpec(modelId: "mlx-community/Qwen2.5-0.5B-Instruct-4bit", prompt: "Write a short story of about 200 words about a lighthouse keeper who learns to code.", maxTokens: 256)
@@ -587,7 +587,7 @@ final class AppModel: ObservableObject {
     /// within a tenth of a second, as when the owner comes back) and free the model's memory.
     func stopForUpdate() async {
         stopping = true
-        setActivity(.waiting("Updating MLX"))
+        setActivity(.waiting("Updating MLX Node"))
         var waited = 0
         while busy && waited < 80 {
             try? await Task.sleep(for: .milliseconds(100))
