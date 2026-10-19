@@ -1,0 +1,59 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$XC" ] || XC=/Applications/Xcode.app
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
+      - name: Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain || xcodebuild -showComponent MetalToolchain || true
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml') }}
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test -project MLX.xcodeproj -scheme MLX -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath build -clonedSourcePackagesDirPath .spm \
+            -skipMacroValidation -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY=- 2>&1 | tee test.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* TEST" || (tail -80 test.log; exit 1)
+
+      - name: Build (Release, ad-hoc signed)
+        run: |
+          set -o pipefail
+          xcodebuild build -project MLX.xcodeproj -scheme MLX -configuration Release -destination 'generic/platform=macOS' \
+            -derivedDataPath build -clonedSourcePackagesDirPath .spm \
+            -skipMacroValidation -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY=- 2>&1 | tee build.log | grep -E "error:|\*\* BUILD" || (tail -120 build.log; exit 1)
+          du -sh build/Build/Products/Release/MLX.app
+
+      - name: Self-test (one job on the GPU)
+        continue-on-error: true
+        run: perl -e 'alarm 900; exec @ARGV' build/Build/Products/Release/MLX.app/Contents/MacOS/MLX --selftest 2>&1 | grep -v "^20[0-9][0-9]-" | tail -30

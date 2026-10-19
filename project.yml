@@ -1,0 +1,130 @@
+name: MLX
+options:
+  bundleIdPrefix: app.mlx
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    MARKETING_VERSION: "0.8.4"
+    CURRENT_PROJECT_VERSION: "14"
+    SWIFT_VERSION: "5.0"
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: NO
+    DEAD_CODE_STRIPPING: YES
+packages:
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    minorVersion: 3.32.3
+  swift-huggingface:
+    url: https://github.com/huggingface/swift-huggingface
+    from: 0.9.0
+  swift-transformers:
+    url: https://github.com/huggingface/swift-transformers
+    from: 1.3.0
+targets:
+  MLXApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: MLX
+    dependencies:
+      - package: mlx-swift-lm
+        product: MLXLLM
+      - package: mlx-swift-lm
+        product: MLXLMCommon
+      - package: mlx-swift-lm
+        product: MLXHuggingFace
+      - package: swift-huggingface
+        product: HuggingFace
+      - package: swift-transformers
+        product: Tokenizers
+      # the installer service (Contents/XPCServices/MLXUpdater.xpc): not sandboxed, only reachable by MLX
+      - target: MLXUpdater
+        embed: true
+    info:
+      path: MLX/Info.plist
+      properties:
+        CFBundleDisplayName: MLX
+        CFBundleName: MLX
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: true
+        NSHumanReadableCopyright: "© 2026 Flex UK Limited. MLX Network."
+        CFBundleURLTypes:
+          - CFBundleURLName: app.mlx.link
+            CFBundleURLSchemes: [mlx]
+    entitlements:
+      path: MLX/MLX.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.files.downloads.read-write: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mlx.mac
+        PRODUCT_NAME: MLX
+        PRODUCT_MODULE_NAME: MLXApp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: NO
+  MLXUpdater:
+    type: xpc-service
+    platform: macOS
+    sources:
+      - path: MLXUpdater
+      - path: MLX/Core/UpdateKit.swift
+    info:
+      path: MLXUpdater/Info.plist
+      properties:
+        CFBundleDisplayName: MLX Updater
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: MLXUpdater
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: "© 2026 Flex UK Limited. MLX Network."
+        XPCService:
+          ServiceType: Application
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mlx.mac.updater
+        PRODUCT_NAME: MLXUpdater
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+  MLXTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MLXTests
+      - path: MLX/Core/Canonical.swift
+      - path: MLX/Core/DeviceKey.swift
+      - path: MLX/Core/Policy.swift
+      - path: MLX/Core/Hex.swift
+      - path: MLX/Core/Throughput.swift
+      - path: MLX/Core/UpdateKit.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mlx.mac.tests
+        CODE_SIGN_IDENTITY: "-"
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  MLX:
+    build:
+      targets:
+        MLXApp: all
+    test:
+      targets:
+        - MLXTests
