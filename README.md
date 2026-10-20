@@ -13,7 +13,7 @@ This is the source of the app that ships on mlx.app as `MLX-Node-<version>.dmg` 
 - **Earns for verified work.** The network scores each linked Mac every hour on time available, jobs done and agreement with other Macs. Rewards are recorded on the public ledger ([explorer](https://explorer.mlx.app)).
 - **Can't see your files.** The app runs in the App Sandbox with network access only, plus Downloads for updates.
 
-MLX Studio, the Mac app for running models locally, carries MLX Node inside and installs it on first run.
+[MLX Harness](https://harness.mlx.app), the Mac app for running models locally (built on vMLX by JANGQ AI), carries MLX Node inside and offers to install it on first run.
 
 ## How it works
 
