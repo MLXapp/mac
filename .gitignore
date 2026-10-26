@@ -1,0 +1,8 @@
+MLX.xcodeproj
+build
+.spm
+dmg
+*.dmg
+*.log
+*.provisionprofile
+.DS_Store
